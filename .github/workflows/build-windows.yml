@@ -1,0 +1,30 @@
+name: Build Windows EXE
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - simple_flow.py
+      - desktop_app.py
+      - flow_engine.py
+      - requirements-build.txt
+      - .github/workflows/build-windows.yml
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - run: python -m pip install -r requirements-build.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name SimpleFlow --collect-all playwright --collect-all cv2 desktop_app.py
+      - run: python -c "import subprocess; subprocess.run(['dist/SimpleFlow.exe', '--self-test'], check=True, timeout=90)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SimpleFlow-Windows
+          path: dist/SimpleFlow.exe
+          if-no-files-found: error
