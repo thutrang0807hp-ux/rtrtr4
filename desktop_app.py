@@ -15,7 +15,7 @@ from browser_login import sign_in_normally
 class App:
     def __init__(self, root):
         self.root = root
-        root.title('SimpleFlow 1.1 • Video từ ý tưởng')
+        root.title('SimpleFlow 1.2 • Video từ ý tưởng')
         root.geometry('860x790')
         root.minsize(720, 700)
         self.events = queue.Queue()
@@ -143,6 +143,14 @@ class App:
                 if self.cancel.is_set():
                     return False
             return not self.cancel.is_set()
+        def verify_image(text):
+            result = []
+            answered = threading.Event()
+            self.events.put(('verify-image', (text, result, answered)))
+            while not answered.wait(.2):
+                if self.cancel.is_set():
+                    return False
+            return bool(result and result[0])
         try:
             reference = prepare_reference(source, seconds, output / 'references' / (uuid.uuid4().hex + '.png'))
             self.reference = reference
@@ -151,7 +159,7 @@ class App:
             sign_in_normally(channel, profile, log, confirm, self.cancel.is_set)
             if self.cancel.is_set():
                 raise Stopped()
-            asyncio.run(create_video(reference, prompt, profile, output, channel, log, confirm, self.cancel.is_set))
+            asyncio.run(create_video(reference, prompt, profile, output, channel, log, confirm, self.cancel.is_set, verify_image=verify_image))
         except Stopped:
             log('Đã dừng phiên.')
         except ModuleNotFoundError as error:
@@ -178,6 +186,13 @@ class App:
         try:
             while True:
                 kind, text = self.events.get_nowait()
+                if kind == 'verify-image':
+                    question, result, answered = text
+                    try:
+                        result.append(False if self.cancel.is_set() else messagebox.askyesno('Xác nhận ảnh tham chiếu', question))
+                    finally:
+                        answered.set()
+                    continue
                 if kind == 'wait':
                     if self.cancel.is_set():
                         continue

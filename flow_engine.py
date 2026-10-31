@@ -42,8 +42,86 @@ class Stopped(Exception):
     pass
 
 
+async def upload_reference(page, reference, log):
+    """Handle existing inputs, lazy upload menus and native file choosers."""
+    from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+    reference = Path(reference).resolve()
+    chooser_tasks = set()
+    delivered = asyncio.Event()
+    async def fill_chooser(chooser):
+        try:
+            await chooser.set_files(str(reference))
+            delivered.set()
+        except Exception as error:
+            log('Hộp chọn tệp chưa nhận ảnh: ' + str(error))
+    def on_chooser(chooser):
+        task = asyncio.create_task(fill_chooser(chooser))
+        chooser_tasks.add(task)
+        task.add_done_callback(chooser_tasks.discard)
+    async def fill_input():
+        inputs = page.locator('input[type="file"]')
+        candidates = []
+        explicit_images = []
+        for index in range(await inputs.count()):
+            item = inputs.nth(index)
+            accept = (await item.get_attribute('accept') or '').lower()
+            if not accept or 'image' in accept or any(ext in accept for ext in ('.png', '.jpg', '.jpeg', '.webp')):
+                candidates.append(item)
+                if accept:
+                    explicit_images.append(item)
+        selected = explicit_images if explicit_images else candidates
+        if len(selected) != 1:
+            return False
+        try:
+            await selected[0].set_input_files(str(reference), timeout=5000)
+            delivered.set()
+            return True
+        except Exception as error:
+            log('Ô tải ảnh chưa nhận tệp: ' + str(error))
+            return False
+    page.on('filechooser', on_chooser)
+    try:
+        if await fill_input():
+            return True
+        editors = page.locator('textarea, [contenteditable="true"], [role="textbox"]').filter(visible=True)
+        scope = page
+        if await editors.count() == 1:
+            composer = editors.locator('xpath=ancestor::*[.//button][1]')
+            if await composer.count() == 1:
+                scope = composer
+        add_name = re.compile(r'^(\+|add|add image|add media|add reference|attach|attach file|upload|upload image|upload media|thêm|thêm ảnh|tải ảnh lên|tải lên)$', re.I)
+        buttons = scope.get_by_role('button', name=add_name).filter(visible=True)
+        if await buttons.count() != 1:
+            buttons = scope.locator('button').filter(has_text=re.compile(r'^\s*(add|add_photo_alternate|attach_file|upload|\+)\s*$', re.I)).filter(visible=True)
+        if await buttons.count() == 1:
+            await buttons.click(timeout=5000)
+            log('Đã mở nút thêm tệp trong vùng nhập prompt.')
+        # A chooser or input may be created after opening the menu.
+        for _ in range(12):
+            if delivered.is_set() or await fill_input():
+                return True
+            upload_name = re.compile(r'^(upload|upload image|upload media|upload file|from computer|from device|choose file|tải lên|tải ảnh lên|tải tệp lên|từ máy tính)(\s.*)?$', re.I)
+            choices = page.get_by_role('menuitem', name=upload_name).or_(page.get_by_role('button', name=upload_name)).filter(visible=True)
+            if await choices.count() == 1:
+                await choices.click(timeout=3000)
+                break
+            await asyncio.sleep(.2)
+        for _ in range(15):
+            if delivered.is_set() or await fill_input():
+                return True
+            await asyncio.sleep(.2)
+        return False
+    except PlaywrightTimeoutError:
+        log('Nút tải ảnh chưa sẵn sàng. Có thể mở nút + thủ công rồi thử lại.')
+        return False
+    finally:
+        page.remove_listener('filechooser', on_chooser)
+        if chooser_tasks:
+            await asyncio.gather(*list(chooser_tasks), return_exceptions=True)
+
+
 async def create_video(reference, prompt, profile, output, channel, log, confirm,
-                       stopped, launch=None, url=FLOW_URL):
+                       stopped, launch=None, url=FLOW_URL, verify_image=None):
     from playwright.async_api import async_playwright
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -88,16 +166,20 @@ async def create_video(reference, prompt, profile, output, channel, log, confirm
             editors = page.locator('textarea, [contenteditable="true"], [role="textbox"]').filter(visible=True)
             if await editors.count() != 1:
                 await checkpoint('Chưa xác định được duy nhất ô prompt. Mở màn hình tạo video trên Flow rồi bấm Tiếp tục.')
-            uploads = page.locator('input[type="file"]')
-            if await uploads.count() == 1:
-                try:
-                    await uploads.set_input_files(str(reference))
-                    log('Đã gửi ảnh tham chiếu tới ô tải lên.')
-                except Exception:
-                    log('Flow chưa nhận ảnh tự động; hãy tải ảnh thủ công.')
-            else:
-                log('Hãy tải ảnh tham chiếu thủ công trên Flow: ' + str(reference))
-            await checkpoint('Kiểm tra ảnh tham chiếu trên Flow; tải ảnh thủ công hoặc xác nhận/cắt ảnh nếu cần. Chỉ bấm Tiếp tục khi ảnh đã sẵn sàng.')
+            while True:
+                uploaded = await upload_reference(page, reference, log)
+                if uploaded:
+                    log('Đã gửi tệp ảnh. Cần xác nhận Flow đã gắn ảnh vào lượt tạo; việc gửi tệp chưa chứng minh tải lên thành công.')
+                else:
+                    log('Chưa gửi được ảnh. Hãy mở nút + cạnh ô prompt, chọn tải ảnh; ứng dụng sẽ thử lại sau khi bạn bấm Tiếp tục. Tệp: ' + str(reference))
+                await checkpoint('Kiểm tra ảnh: mở nút + cạnh prompt nếu chưa có ảnh, xác nhận/cắt ảnh nếu Flow yêu cầu. Bấm Tiếp tục để xác nhận ảnh đã gắn, hoặc thử tải lại.')
+                check = verify_image or confirm
+                attached = await asyncio.to_thread(check, 'Bạn đã nhìn thấy ảnh tham chiếu của mình gắn cạnh ô prompt trên Flow chưa? Chỉ chọn Có khi ảnh đã xuất hiện; chọn Không để thử tải lại.')
+                if stopped():
+                    raise Stopped()
+                if attached:
+                    break
+                log('Chưa xác nhận có ảnh; không điền prompt hoặc bấm tạo. Đang thử lại bước tải ảnh.')
             editors = page.locator('textarea, [contenteditable="true"], [role="textbox"]').filter(visible=True)
             if await editors.count() == 1:
                 await editors.fill(prompt)

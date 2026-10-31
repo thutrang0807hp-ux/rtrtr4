@@ -1,5 +1,9 @@
 # SimpleFlow Desktop
 
+## Bản 1.2: tải ảnh qua nút thêm tệp
+
+Hỗ trợ ô tải ảnh ẩn, nút + trong vùng nhập prompt, menu Upload image và hộp chọn tệp hệ thống. Khi có nhiều ô tải, ưu tiên ô nhận ảnh; không tự chọn bừa giữa các ô giống nhau. Sau khi gửi tệp, bạn cần xác nhận đã nhìn thấy ảnh gắn trong ô tạo trên Flow. Chọn Không sẽ thử lại, chưa chuyển sang điền prompt hoặc bấm tạo. Chưa kiểm chứng các selector này trên phiên Flow thật; có thể cần mở nút + thủ công nếu Google thay đổi giao diện.
+
 ## Bản 1.1: đăng nhập trước bằng trình duyệt thông thường
 
 Khi bắt đầu, ứng dụng mở Edge/Chrome thông thường bằng hồ sơ riêng, chưa khởi chạy Playwright. Đăng nhập và kiểm tra truy cập Flow ở đó, đóng tất cả cửa sổ vừa mở rồi bấm Tiếp tục. Sau đó ứng dụng mới mở phiên tự động bằng cùng hồ sơ. Nếu Google vẫn từ chối đăng nhập, dừng phiên và dùng Flow trực tiếp; ứng dụng không bỏ qua các yêu cầu bảo mật của Google. Không sao chép hồ sơ Chrome cá nhân hay xuất cookie.
