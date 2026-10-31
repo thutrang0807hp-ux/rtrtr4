@@ -1,5 +1,11 @@
 # SimpleFlow Desktop
 
+## Bản 1.1: đăng nhập trước bằng trình duyệt thông thường
+
+Khi bắt đầu, ứng dụng mở Edge/Chrome thông thường bằng hồ sơ riêng, chưa khởi chạy Playwright. Đăng nhập và kiểm tra truy cập Flow ở đó, đóng tất cả cửa sổ vừa mở rồi bấm Tiếp tục. Sau đó ứng dụng mới mở phiên tự động bằng cùng hồ sơ. Nếu Google vẫn từ chối đăng nhập, dừng phiên và dùng Flow trực tiếp; ứng dụng không bỏ qua các yêu cầu bảo mật của Google. Không sao chép hồ sơ Chrome cá nhân hay xuất cookie.
+
+Hồ sơ riêng vẫn ở cùng vị trí như bản trước. Nếu Flow yêu cầu đăng nhập lại trong cửa sổ tự động, dừng và bắt đầu lại để thực hiện bước đăng nhập thông thường.
+
 Ứng dụng cửa sổ Windows: chọn ảnh/video, nhập prompt và hỗ trợ tạo video trên Google Flow.
 
 ## Phạm vi thực tế

@@ -84,7 +84,7 @@ async def create_video(reference, prompt, profile, output, channel, log, confirm
             page = context.pages[0] if context.pages else await context.new_page()
             log('Đang mở Google Flow…')
             await page.goto(url, wait_until='domcontentloaded', timeout=60000)
-            await checkpoint('Trong cửa sổ trình duyệt: đăng nhập Google, mở dự án và chọn chế độ tạo video từ ảnh. Sau đó bấm Tiếp tục trong ứng dụng.')
+            await checkpoint('Mở dự án và chọn chế độ tạo video từ ảnh. Nếu Flow yêu cầu đăng nhập lại, bấm Dừng rồi bắt đầu lại để đăng nhập ở trình duyệt thông thường; không nhập mật khẩu trong cửa sổ tự động. Khi sẵn sàng, bấm Tiếp tục.')
             editors = page.locator('textarea, [contenteditable="true"], [role="textbox"]').filter(visible=True)
             if await editors.count() != 1:
                 await checkpoint('Chưa xác định được duy nhất ô prompt. Mở màn hình tạo video trên Flow rồi bấm Tiếp tục.')

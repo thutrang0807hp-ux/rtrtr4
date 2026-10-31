@@ -9,12 +9,13 @@ from tkinter import filedialog, messagebox, ttk
 import uuid
 
 from flow_engine import create_video, prepare_reference, Stopped
+from browser_login import sign_in_normally
 
 
 class App:
     def __init__(self, root):
         self.root = root
-        root.title('SimpleFlow • Video từ ý tưởng')
+        root.title('SimpleFlow 1.1 • Video từ ý tưởng')
         root.geometry('860x790')
         root.minsize(720, 700)
         self.events = queue.Queue()
@@ -147,6 +148,9 @@ class App:
             self.reference = reference
             log('Ảnh tham chiếu: ' + str(reference))
             profile.mkdir(parents=True, exist_ok=True)
+            sign_in_normally(channel, profile, log, confirm, self.cancel.is_set)
+            if self.cancel.is_set():
+                raise Stopped()
             asyncio.run(create_video(reference, prompt, profile, output, channel, log, confirm, self.cancel.is_set))
         except Stopped:
             log('Đã dừng phiên.')

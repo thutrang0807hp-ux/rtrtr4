@@ -6,6 +6,8 @@ on:
       - simple_flow.py
       - desktop_app.py
       - flow_engine.py
+      - browser_login.py
+      - tests/**
       - requirements-build.txt
       - .github/workflows/build-windows.yml
 jobs:
